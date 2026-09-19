@@ -157,22 +157,6 @@ function toInlineJsValue(value) {
 
 function homeworkStatusLabels(){return {done:"Hoàn thành",missing:"Chưa làm",partial:"Làm chưa đủ",supplemented:"Đã bổ sung"};}
 
-function homeworkRequest(mode,params) {
- return new Promise((resolve,reject)=>{
- const callback="hw_"+Date.now()+"_"+Math.floor(Math.random()*1e8),script=document.createElement("script");
- let finished=false;
- const timer=setTimeout(()=>finish(null),35000);
- function finish(r){
- if(finished)return;finished=true;clearTimeout(timer);script.remove();
- window[callback]=()=>{};setTimeout(()=>delete window[callback],60000);
- if(!r||!r.ok){const message=r&&r.message||"Chưa xác nhận được kết quả từ Sheet. Hãy thử lại; bản ghi cùng ngày và môn sẽ được cập nhật, không tạo trùng.";if(isInvalidGoogleAdminKeyMessage(message))clearGoogleAdminKey();reject(new Error(message));return;}
- resolve(r);
- }
- window[callback]=finish;script.onerror=()=>finish(null);
- script.src=GOOGLE_SHEET_API_URL+"?"+new URLSearchParams({mode,...params,callback});document.head.appendChild(script);
- });
-}
-
 function parentHomeworkDay(value) {
  const date=value?new Date(value):new Date();
  if(Number.isNaN(date.getTime()))return '';
@@ -765,6 +749,25 @@ function logoutParentPortal() {
   clearParentRecords(); window.parentSubject = 'Toán'; openParentLookupModal();
 }
 function closeModal() { logoutParentPortal(); }
+function homeworkRequest(mode) {
+  if (mode !== 'hw-list') return Promise.reject(new Error('Unsupported parent request'));
+  return new Promise((resolve, reject) => {
+    const callback = 'parentHomework_' + Date.now() + '_' + Math.floor(Math.random() * 1e8);
+    const script = document.createElement('script');
+    let finished = false;
+    const timer = setTimeout(() => finish(null), 35000);
+    function finish(response) {
+      if (finished) return;
+      finished = true; clearTimeout(timer); script.remove();
+      window[callback] = () => {}; setTimeout(() => delete window[callback], 60000);
+      if (!response || !response.ok) { reject(new Error('Không thể tải bài tập.')); return; }
+      resolve(response);
+    }
+    window[callback] = finish; script.onerror = () => finish(null);
+    script.src = GOOGLE_SHEET_API_URL + '?' + new URLSearchParams({ mode: 'hw-list', callback });
+    document.head.appendChild(script);
+  });
+}
 function showToast(message, type = 'success') {
   const toast = document.createElement('div');
   toast.className = 'toast ' + type;
