@@ -741,7 +741,7 @@ function renderAcademicInsights(info) {
     if(!info)return '<p>Chưa tải được đánh giá học tập.</p>';
     const box=(level,title,details)=>`<article class="rounded-2xl border p-4 ${level===-1?'bg-emerald-50 border-emerald-200 text-emerald-800':level===3?'bg-red-50 border-red-200 text-red-800':level?'bg-yellow-50 border-yellow-200 text-yellow-900':'bg-slate-50 border-slate-200 text-slate-700'}"><strong>${esc(title)}</strong><ul class="mt-2 space-y-1 text-sm">${details.map(s=>`<li>${esc(s)}</li>`).join('')}</ul></article>`;
     const status=info.level===3?'🔴 Cảnh báo đỏ':info.level?'🟡 Nhắc nhở':info.count?'Chưa ghi nhận bài dưới 5 trong đợt':'Đang chờ kết quả mới';
-    return `<div class="grid lg:grid-cols-2 gap-5"><section class="space-y-3"><h3 class="font-black text-xl">Cảnh báo cần quan tâm</h3><p class="text-sm text-slate-500">Đợt ${esc(info.period)} · 4 môn ưu tiên</p>${box(info.level,status,[`Đã có ${info.count} bài ở ${info.subjectCount} môn ưu tiên; ${info.lowCount} bài dưới 5.`,...info.details])}<p class="text-xs text-slate-500">1 bài dưới 5: vàng; từ 2 bài: đỏ. Cập nhật ngay theo ngày kiểm tra trong đợt.</p>${info.carry.map(c=>box(c.level,'Cảnh báo từ đợt '+c.period,c.details)).join('')}</section><section class="space-y-3"><h3 class="font-black text-xl">Xu hướng học tập — tất cả các môn</h3>${info.trends.map(t=>box(t.concern?1:t.strong||t.improving?-1:0,(t.concern?'🟡 ':t.strong?'🌟 ':t.improving?'🌱 ':'')+t.subject+' — '+t.status,[...t.details,t.points.length?t.points.map(p=>`${p.value} (${p.date})`).join(' → '):'Chưa có điểm',t.stale?'Chưa có kết quả mới trong đợt hiện tại':''].filter(Boolean))).join('')}<p class="text-xs text-slate-500">Xu hướng so với chính học sinh, qua các lần kiểm tra gần nhất. Nếu nhiều bài cùng ngày, dùng điểm thấp nhất của ngày để tránh suy đoán thứ tự. Độ khó các bài có thể khác nhau.</p></section></div>`;
+    return `<div class="grid lg:grid-cols-2 gap-5"><section class="space-y-3"><h3 class="font-black text-xl">Cảnh báo cần quan tâm</h3><p class="text-sm text-slate-500">Đợt ${esc(info.period)} · 4 môn ưu tiên</p>${box(info.level,status,[`Đã có ${info.count} bài ở ${info.subjectCount} môn ưu tiên; ${info.lowCount} bài dưới 5.`,...info.details])}<p class="text-xs text-slate-500">1 bài dưới 5: vàng; từ 2 bài: đỏ. Cập nhật ngay theo ngày kiểm tra trong đợt.</p>${info.carry.map(c=>box(c.level,'Cảnh báo từ đợt '+c.period,c.details)).join('')}</section><section class="space-y-3"><h3 class="font-black text-xl">Xu hướng học tập — tất cả các môn</h3>${info.trends.map(t=>box(t.concern?1:t.strong||t.improving?-1:0,(t.concern?'🟡 ':t.strong?'🌟 ':t.improving?'🌱 ':'')+t.subject+' — '+t.status,[...t.details,t.points.length?t.points.map(p=>`${p.scale && p.scale!==10 ? p.rawValue+'/'+p.scale+' → '+Number(p.value.toFixed(3))+'/10' : p.value} (${p.date})`).join(' → '):'Chưa có điểm',t.stale?'Chưa có kết quả mới trong đợt hiện tại':''].filter(Boolean))).join('')}<p class="text-xs text-slate-500">Xu hướng so với chính học sinh, qua các lần kiểm tra gần nhất. Nếu nhiều bài cùng ngày, dùng điểm thấp nhất của ngày để tránh suy đoán thứ tự. Bài ghi rõ thang điểm riêng được quy về thang 10 để đánh giá; điểm gốc vẫn giữ nguyên. Độ khó các bài có thể khác nhau.</p></section></div>`;
 }
 
 function renderParentAlerts(alerts) {
@@ -776,17 +776,7 @@ function showParentView(studentId) {
           const avg = rows.length ? (rows.reduce((a,x)=>a+x.score,0)/rows.length).toFixed(2) : "--";
           const max = rows.length ? Math.max(...rows.map(x=>x.score)).toFixed(1) : "--";
           const min = rows.length ? Math.min(...rows.map(x=>x.score)).toFixed(1) : "--";
-          const trend = (() => {
-            if (rows.length < 2) return "--";
-            // Hệ số góc của đường hồi quy tuyến tính (linear trendline), theo đơn vị điểm/bài kiểm tra.
-            const meanIndex = (rows.length - 1) / 2;
-            const meanScore = rows.reduce((sum, row) => sum + Number(row.score), 0) / rows.length;
-            const denominator = rows.reduce((sum, _, index) => sum + Math.pow(index - meanIndex, 2), 0);
-            const slope = denominator ? rows.reduce((sum, row, index) => sum + (index - meanIndex) * (Number(row.score) - meanScore), 0) / denominator : 0;
-            if (slope > 0.01) return "Cải thiện";
-            if (slope < -0.01) return "Cần cố gắng";
-            return "Ổn định";
-          })();
+          const trend = window.parentAlerts?.insights?.trends?.find(t=>t.subject===subject)?.status || 'Chưa đủ dữ liệu';
           const cardStyles = ["bg-blue-50 text-blue-600","bg-emerald-50 text-emerald-700","bg-rose-50 text-rose-600","bg-amber-50 text-amber-700","bg-indigo-50 text-indigo-700"];
           const cards = [["📊 Điểm trung bình",avg],["🏆 Điểm cao nhất",max],["📉 Điểm thấp nhất",min],["📝 Tổng số bài",rows.length],["📈 Xu hướng học tập",trend]].map((x,i) => `<div class="${cardStyles[i]} rounded-2xl p-4"><div class="text-xs font-bold opacity-70">${x[0]}</div><div class="text-2xl font-black mt-1">${x[1]}</div></div>`).join("");
           const chart = rows.length ? (() => {
